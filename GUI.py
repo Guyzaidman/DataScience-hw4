@@ -22,6 +22,7 @@ class GUI:
         self.bins_entry = Entry(self.master, validate="key", validatecommand=(vcmd, '%P'))
 
         self.build_button = Button(self.master, text='Build', command=lambda: self.build())
+        self.classify_button = Button(self.master, text='Classify', command=lambda: self.classify())
 
         # layout
         self.browse_button.grid(row=0)
@@ -29,6 +30,7 @@ class GUI:
         self.bins_label.grid(row=4)
         self.bins_entry.grid(row=4, column=1)
         self.build_button.grid()
+        self.classify_button.grid()
 
         self.master.mainloop()
 
@@ -52,10 +54,9 @@ class GUI:
             return False
 
     def build(self):
-
-        self.check_files()
-
-        self.build_model()
+        if self.check_files():
+            self.struct = self.read_struct()
+            self.build_model(self.struct)
 
     def check_files(self):
         print('trying to read files from given folder')
@@ -65,8 +66,31 @@ class GUI:
             if not os.path.isfile(os.path.join(self.dir, 'Structure.txt')):
                 raise Exception()
             print("all files exist")
+            return True
         except:
             messagebox.showerror(title="Error", message='Missing files in folder')
+            return False
 
-    def build_model(self):
+    def build_model(self, struct):
         pass
+
+    def classify(self):
+        if self.check_files():
+            df_test = pd.read_csv(os.path.join(self.dir, 'test.csv'))
+            print(df_test.head)
+
+    def read_struct(self):
+        path = os.path.join(self.dir,'Structure.txt')
+        f = open(path, "r")
+        struct = {}
+        for line in f:
+            splited = line.split(' ',2)
+            print(splited)
+
+            if 'NUMERIC' in splited[2]:
+                struct[splited[1]] = 'NUMERIC'
+            else:
+                struct[splited[1]] = splited[2][splited[2].find('{')+1:splited[2].find('}')].split(',')
+
+
+        return struct
