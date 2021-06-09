@@ -2,6 +2,8 @@ from tkinter import filedialog, messagebox
 from tkinter import *
 import pandas as pd
 import os
+import preprocessing
+from NaiveBayes import NaiveBayes
 
 
 class GUI:
@@ -55,8 +57,16 @@ class GUI:
 
     def build(self):
         if self.check_files():
-            self.struct = self.read_struct()
-            self.build_model(self.struct)
+            try:
+                self.struct = self.read_struct()
+                train_df = pd.read_csv(os.path.join(self.dir, 'train.csv'))
+                train_df = preprocessing.fill_missing(train_df, self.struct)
+                train_df = preprocessing.discretize(train_df, self.num_of_bins, self.struct)
+
+                self.model = NaiveBayes(train_df)
+                messagebox.showinfo(title="Build", message="Model was Built successfuly!")
+            except Exception as e:
+                messagebox.showerror(title="Error", message=e)
 
     def check_files(self):
         print('trying to read files from given folder')
@@ -71,9 +81,6 @@ class GUI:
             messagebox.showerror(title="Error", message='Missing files in folder')
             return False
 
-    def build_model(self, struct):
-        pass
-
     def classify(self):
         if self.check_files():
             df_test = pd.read_csv(os.path.join(self.dir, 'test.csv'))
@@ -84,9 +91,7 @@ class GUI:
         f = open(path, "r")
         struct = {}
         for line in f:
-            splited = line.split(' ',2)
-            print(splited)
-
+            splited = line.split(' ', 2)
             if 'NUMERIC' in splited[2]:
                 struct[splited[1]] = 'NUMERIC'
             else:
