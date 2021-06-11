@@ -14,6 +14,7 @@ class GUI:
 
         self.dir = ''
         self.text_entry = StringVar()
+        # path entry
         self.text = Entry(self.master, textvariable=self.text_entry, width=20)
 
         self.browse_button = Button(self.master, text='Browse', command=lambda: self.browse())
@@ -84,7 +85,8 @@ class GUI:
     def classify(self):
         if self.check_files():
             df_test = pd.read_csv(os.path.join(self.dir, 'test.csv'))
-            print(df_test.head)
+            predictions = self.model.predict(df_test)
+            print(predictions)
 
     def read_struct(self):
         path = os.path.join(self.dir,'Structure.txt')

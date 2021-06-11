@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import statistics
-from sklearn.preprocessing import KBinsDiscretizer
+from sklearn.preprocessing import KBinsDiscretizer, OrdinalEncoder, LabelEncoder
 
 
 def fill_missing(df, struct):
@@ -36,7 +36,22 @@ def discretize(df, n, struct):
     # est.fit(numeric_df)
     disc_bin_df = pd.DataFrame(est.fit_transform(numeric_df))
     disc_bin_df.columns = numeric_df.columns
+    disc_bin_df.index = numeric_df.index
+
     other_df = df.drop(numeric_feature_names, axis=1)
+
+    oe = OrdinalEncoder()
+    le = LabelEncoder()
+    target = pd.DataFrame(other_df['class'])
+    other_df.drop(columns=['class'], inplace=True)
+    labeled_cat_df = pd.DataFrame(oe.fit_transform(other_df))
+    labeled_target = pd.DataFrame(le.fit_transform(target))
+
+    labeled_cat_df.columns = other_df.columns
+    labeled_cat_df.index = other_df.index
+    labeled_target.columns = target.columns
+    labeled_target.index = target.index
+    other_df = labeled_cat_df.merge(labeled_target, left_index=True, right_index=True)
 
     final_df = other_df.merge(disc_bin_df, left_index=True, right_index=True)
 
