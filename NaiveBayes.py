@@ -7,6 +7,6 @@ class NaiveBayes:
         self.model.fit(X,y)
 
     def predict(self, test_df):
-        test_df.drop(columns=['class'], inplace=True)
+        test_df = test_df.drop(columns=['class'])
         pred = self.model.predict(test_df)
         return pred

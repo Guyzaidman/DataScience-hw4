@@ -2,38 +2,41 @@ from tkinter import filedialog, messagebox
 from tkinter import *
 import pandas as pd
 import os
-import preprocessing
+from preprocessing import PreProcessing
 from NaiveBayes import NaiveBayes
+from sklearn.metrics import accuracy_score
 
 
 class GUI:
     def __init__(self):
         self.master = Tk()
-        self.master.title("GUI")
+        self.master.title("Naïve Bayes Classifier")
         self.master.geometry("500x250")
 
         self.dir = ''
         self.text_entry = StringVar()
         # path entry
-        self.text = Entry(self.master, textvariable=self.text_entry, width=20)
+        self.text = Entry(self.master, textvariable=self.text_entry, width=50)
+        self.dir_label = Label(self.master, text="Directory Path")
 
         self.browse_button = Button(self.master, text='Browse', command=lambda: self.browse())
 
         self.num_of_bins = 0
-        self.bins_label = Label(self.master, text="Number of bins:")
+        self.bins_label = Label(self.master, text="Discretization Bins:")
         vcmd = self.master.register(self.validate)  # we have to wrap the command
         self.bins_entry = Entry(self.master, validate="key", validatecommand=(vcmd, '%P'))
 
-        self.build_button = Button(self.master, text='Build', command=lambda: self.build())
-        self.classify_button = Button(self.master, text='Classify', command=lambda: self.classify())
+        self.build_button = Button(self.master, text='Build', command=lambda: self.build(), width=25)
+        self.classify_button = Button(self.master, text='Classify', command=lambda: self.classify(), width=25)
 
         # layout
-        self.browse_button.grid(row=0)
-        self.text.grid(row=0, column=1)
-        self.bins_label.grid(row=4)
-        self.bins_entry.grid(row=4, column=1)
-        self.build_button.grid()
-        self.classify_button.grid()
+        self.browse_button.grid(row=0, column=2, padx=20, pady=2)
+        self.text.grid(row=0, column=1, pady=2)
+        self.dir_label.grid(row=0, column=0, sticky=W, pady=2)
+        self.bins_label.grid(row=1, column=0, sticky=W, pady=2)
+        self.bins_entry.grid(row=1, column=1, sticky=W)
+        self.build_button.grid(row=3, column=1, pady=15)
+        self.classify_button.grid(row=4, column=1)
 
         self.master.mainloop()
 
@@ -48,45 +51,52 @@ class GUI:
 
         try:
             self.num_of_bins = int(new_text)
-            print("number of bins correct")
-            print(self.num_of_bins)
+            # print("number of bins correct")
+            # print(self.num_of_bins)
             return True
         except ValueError:
-            print("number of bins is not a number")
-            print(self.num_of_bins)
+            # print("number of bins is not a number")
+            # print(self.num_of_bins)
             return False
 
     def build(self):
         if self.check_files():
             try:
                 self.struct = self.read_struct()
+                self.preprocessing_obj = PreProcessing(self.num_of_bins, self.struct)
                 train_df = pd.read_csv(os.path.join(self.dir, 'train.csv'))
-                train_df = preprocessing.fill_missing(train_df, self.struct)
-                train_df = preprocessing.discretize(train_df, self.num_of_bins, self.struct)
+                train_df = self.preprocessing_obj.fill_missing(train_df)
+                train_df = self.preprocessing_obj.discretize(train_df)
 
                 self.model = NaiveBayes(train_df)
-                messagebox.showinfo(title="Build", message="Model was Built successfuly!")
+                messagebox.showinfo(title="Naïve Bayes Classifier", message="Building classifier using train-set is done!")
             except Exception as e:
-                messagebox.showerror(title="Error", message=e)
+                messagebox.showerror(title="Naïve Bayes Classifier", message=e)
 
     def check_files(self):
-        print('trying to read files from given folder')
         try:
             df_train = pd.read_csv(os.path.join(self.dir, 'train.csv'))
             df_test = pd.read_csv(os.path.join(self.dir, 'test.csv'))
             if not os.path.isfile(os.path.join(self.dir, 'Structure.txt')):
                 raise Exception()
-            print("all files exist")
             return True
         except:
-            messagebox.showerror(title="Error", message='Missing files in folder')
+            messagebox.showerror(title="Naïve Bayes Classifier", message='Missing files in folder')
             return False
 
     def classify(self):
         if self.check_files():
             df_test = pd.read_csv(os.path.join(self.dir, 'test.csv'))
+            df_test = self.preprocessing_obj.fill_missing(df_test)
+            df_test = self.preprocessing_obj.discretize(df_test)
             predictions = self.model.predict(df_test)
-            print(predictions)
+            predictions = self.preprocessing_obj.inverse_pred(predictions)
+            output_dir = os.path.join(self.dir, 'output.txt')
+            with open(output_dir, 'w') as f:
+                for idx, entry in enumerate(predictions):
+                    f.write(f'{idx+1} {entry}\n')
+            messagebox.showinfo(title="Naïve Bayes Classifier", message="Classification done successfully!")
+            self.master.destroy()
 
     def read_struct(self):
         path = os.path.join(self.dir,'Structure.txt')
