@@ -18,6 +18,7 @@ class GUI:
         # path entry
         self.text = Entry(self.master, textvariable=self.text_entry, width=50)
         self.dir_label = Label(self.master, text="Directory Path")
+        self.good_dir = False
 
         self.browse_button = Button(self.master, text='Browse', command=lambda: self.browse())
 
@@ -25,9 +26,10 @@ class GUI:
         self.bins_label = Label(self.master, text="Discretization Bins:")
         vcmd = self.master.register(self.validate)  # we have to wrap the command
         self.bins_entry = Entry(self.master, validate="key", validatecommand=(vcmd, '%P'))
+        self.good_bins = False
 
-        self.build_button = Button(self.master, text='Build', command=lambda: self.build(), width=25)
-        self.classify_button = Button(self.master, text='Classify', command=lambda: self.classify(), width=25)
+        self.build_button = Button(self.master, text='Build', state=DISABLED, command=lambda: self.build(), width=25)
+        self.classify_button = Button(self.master, text='Classify', state=DISABLED, command=lambda: self.classify(), width=25)
 
         # layout
         self.browse_button.grid(row=0, column=2, padx=20, pady=2)
@@ -42,36 +44,47 @@ class GUI:
 
     def browse(self):
         self.dir = filedialog.askdirectory()
-        self.text_entry.set(self.dir)
+        if self.check_files():
+            self.text_entry.set(self.dir)
+            self.good_dir = True
+        else:
+            self.dir = ''
+            self.good_dir = False
+
+        self.check_switch()
 
     def validate(self, new_text):
         if not new_text:  # the field is being cleared
             self.num_of_bins = 0
+            self.good_bins = False
+            self.check_switch()
             return True
 
         try:
             self.num_of_bins = int(new_text)
-            # print("number of bins correct")
-            # print(self.num_of_bins)
+            if self.num_of_bins >= 2:
+                self.good_bins = True
+            else:
+                self.good_bins = False
+            self.check_switch()
             return True
         except ValueError:
-            # print("number of bins is not a number")
             # print(self.num_of_bins)
             return False
 
     def build(self):
-        if self.check_files():
-            try:
-                self.struct = self.read_struct()
-                self.preprocessing_obj = PreProcessing(self.num_of_bins, self.struct)
-                train_df = pd.read_csv(os.path.join(self.dir, 'train.csv'))
-                train_df = self.preprocessing_obj.fill_missing(train_df)
-                train_df = self.preprocessing_obj.discretize(train_df)
+        try:
+            self.struct = self.read_struct()
+            self.preprocessing_obj = PreProcessing(self.num_of_bins, self.struct)
+            train_df = pd.read_csv(os.path.join(self.dir, 'train.csv'))
+            train_df = self.preprocessing_obj.fill_missing(train_df)
+            train_df = self.preprocessing_obj.discretize(train_df)
 
-                self.model = NaiveBayes(train_df)
-                messagebox.showinfo(title="Naïve Bayes Classifier", message="Building classifier using train-set is done!")
-            except Exception as e:
-                messagebox.showerror(title="Naïve Bayes Classifier", message=e)
+            self.model = NaiveBayes(train_df)
+            messagebox.showinfo(title="Naïve Bayes Classifier", message="Building classifier using train-set is done!")
+            self.classify_button['state'] = 'normal'
+        except Exception as e:
+            messagebox.showerror(title="Naïve Bayes Classifier", message=e)
 
     def check_files(self):
         try:
@@ -85,21 +98,20 @@ class GUI:
             return False
 
     def classify(self):
-        if self.check_files():
+        try:
             df_test = pd.read_csv(os.path.join(self.dir, 'test.csv'))
             df_test = self.preprocessing_obj.fill_missing(df_test)
             df_test = self.preprocessing_obj.discretize(df_test)
             predictions = self.model.predict(df_test)
             predictions = self.preprocessing_obj.inverse_pred(predictions)
-            output_dir = os.path.join(self.dir, 'output.txt')
-            with open(output_dir, 'w') as f:
-                for idx, entry in enumerate(predictions):
-                    f.write(f'{idx+1} {entry}\n')
+            self.write_output(predictions)
             messagebox.showinfo(title="Naïve Bayes Classifier", message="Classification done successfully!")
             self.master.destroy()
+        except Exception as e:
+            messagebox.showerror(title="Naïve Bayes Classifier", message=e)
 
     def read_struct(self):
-        path = os.path.join(self.dir,'Structure.txt')
+        path = os.path.join(self.dir, 'Structure.txt')
         f = open(path, "r")
         struct = {}
         for line in f:
@@ -107,7 +119,18 @@ class GUI:
             if 'NUMERIC' in splited[2]:
                 struct[splited[1]] = 'NUMERIC'
             else:
-                struct[splited[1]] = splited[2][splited[2].find('{')+1:splited[2].find('}')].split(',')
-
+                struct[splited[1]] = splited[2][splited[2].find('{') + 1:splited[2].find('}')].split(',')
 
         return struct
+
+    def write_output(self, predictions):
+        output_dir = os.path.join(self.dir, 'output.txt')
+        with open(output_dir, 'w') as f:
+            for idx, entry in enumerate(predictions):
+                f.write(f'{idx + 1} {entry}\n')
+
+    def check_switch(self):
+        if self.good_dir and self.good_bins:
+            self.build_button["state"] = "normal"
+        else:
+            self.build_button["state"] = "disabled"
